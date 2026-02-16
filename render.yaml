@@ -1,6 +1,5 @@
 databases:
   - name: nexus-db
-    plan: free
     databaseName: nexus_db
     user: nexus_user
 
@@ -8,7 +7,6 @@ services:
   - type: web
     name: nexus-backend
     runtime: python
-    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: python run.py
@@ -27,7 +25,6 @@ services:
   - type: web
     name: nexus-frontend
     runtime: static
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
