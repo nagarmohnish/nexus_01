@@ -8,14 +8,15 @@ from app.database import Base
 
 
 class Revenue(Base):
-    """Revenue data per entity, per state, per year, broken down by source."""
+    """Revenue data per property, per state, per year, broken down by source."""
     __tablename__ = "revenues"
     __table_args__ = (
-        UniqueConstraint("entity_id", "state_code", "year", name="uq_revenue_entity_state_year"),
+        UniqueConstraint("property_id", "state_code", "year", name="uq_revenue_property_state_year"),
     )
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     entity_id = Column(String, ForeignKey("entities.id"), nullable=False, index=True)
+    property_id = Column(String, ForeignKey("properties.id"), nullable=False, index=True)
     state_code = Column(String(2), nullable=False, index=True)
     year = Column(Integer, nullable=False)  # e.g., 2024
 
@@ -37,6 +38,7 @@ class Revenue(Base):
     updated_at = Column(String, nullable=False, default=lambda: datetime.utcnow().isoformat())
 
     entity = relationship("Entity", backref="revenues")
+    prop = relationship("Property", back_populates="revenues")
 
     @property
     def total_advertising(self):

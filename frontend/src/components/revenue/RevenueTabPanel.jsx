@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import * as propertyApi from "../../api/properties";
 import * as revenueApi from "../../api/revenues";
 import * as trafficApi from "../../api/trafficData";
+import PropertyManager from "./PropertyManager";
 import RevenueForm from "./RevenueForm";
 import RevenueTable from "./RevenueTable";
 import TrafficForm from "./TrafficForm";
@@ -18,17 +20,21 @@ export default function RevenueTabPanel({ entityId }) {
   const [activeTab, setActiveTab] = useState("revenue");
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [properties, setProperties] = useState([]);
   const [revenues, setRevenues] = useState([]);
   const [traffic, setTraffic] = useState([]);
+  const [filterPropertyId, setFilterPropertyId] = useState("");
   const [error, setError] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [revData, trafData] = await Promise.all([
+      const [propData, revData, trafData] = await Promise.all([
+        propertyApi.listProperties(entityId),
         revenueApi.listRevenues(entityId),
         trafficApi.listTrafficData(entityId),
       ]);
+      setProperties(propData);
       setRevenues(revData);
       setTraffic(trafData);
     } catch (err) {
@@ -41,6 +47,23 @@ export default function RevenueTabPanel({ entityId }) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleCreateProperty = async (data) => {
+    try {
+      await propertyApi.createProperty(entityId, data);
+      loadData();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      alert(detail || "Failed to create property");
+    }
+  };
+
+  const handleDeleteProperty = async (propId) => {
+    if (!confirm("Delete this property? All its revenue and traffic data will be removed.")) return;
+    await propertyApi.deleteProperty(entityId, propId);
+    if (filterPropertyId === propId) setFilterPropertyId("");
+    loadData();
+  };
 
   const handleCreateRevenue = async (data) => {
     try {
@@ -76,87 +99,130 @@ export default function RevenueTabPanel({ entityId }) {
 
   if (loading) return <LoadingSpinner />;
 
-  const totalRevenue = revenues.reduce((sum, r) => sum + (r.total_revenue || 0), 0);
+  const filteredRevenues = filterPropertyId
+    ? revenues.filter((r) => r.property_id === filterPropertyId)
+    : revenues;
+  const filteredTraffic = filterPropertyId
+    ? traffic.filter((t) => t.property_id === filterPropertyId)
+    : traffic;
+
+  const totalRevenue = filteredRevenues.reduce((sum, r) => sum + (r.total_revenue || 0), 0);
 
   return (
     <div>
-      {/* Summary bar */}
-      {(revenues.length > 0 || traffic.length > 0) && (
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-            <div className="text-lg font-bold text-blue-700">
-              ${totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-xs text-blue-600">Total Revenue</div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-            <div className="text-lg font-bold text-blue-700">{revenues.length}</div>
-            <div className="text-xs text-blue-600">State Revenue Entries</div>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-            <div className="text-lg font-bold text-blue-700">{traffic.length}</div>
-            <div className="text-xs text-blue-600">Traffic Data Entries</div>
-          </div>
-        </div>
-      )}
+      {/* Property Manager */}
+      <PropertyManager
+        properties={properties}
+        onCreate={handleCreateProperty}
+        onDelete={handleDeleteProperty}
+      />
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 mb-4">{error}</div>
-      )}
-
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-1 border-b border-slate-200">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setShowForm(false); }}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-                activeTab === tab.key
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {!showForm && (
-          <Button size="sm" onClick={() => setShowForm(true)}>
-            + Add
-          </Button>
-        )}
-      </div>
-
-      {activeTab === "revenue" && (
+      {properties.length > 0 && (
         <>
-          <RevenueTable revenues={revenues} onDelete={handleDeleteRevenue} />
-          {revenues.length === 0 && !showForm && (
-            <EmptyState
-              title="No revenue data"
-              description="Add state-by-state revenue to enable economic nexus analysis. Revenue is broken down by source (Mediavine, Raptive, AdSense, syndication, etc.)."
-            />
-          )}
-          {showForm && (
-            <div className="mt-4 p-4 bg-slate-50 rounded-lg">
-              <RevenueForm onSubmit={handleCreateRevenue} onCancel={() => setShowForm(false)} />
+          {/* Summary bar */}
+          {(revenues.length > 0 || traffic.length > 0) && (
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-blue-700">
+                  ${totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </div>
+                <div className="text-xs text-blue-600">Total Revenue</div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-blue-700">{properties.length}</div>
+                <div className="text-xs text-blue-600">Properties</div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-blue-700">{filteredRevenues.length}</div>
+                <div className="text-xs text-blue-600">Revenue Entries</div>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-blue-700">{filteredTraffic.length}</div>
+                <div className="text-xs text-blue-600">Traffic Entries</div>
+              </div>
             </div>
           )}
-        </>
-      )}
 
-      {activeTab === "traffic" && (
-        <>
-          <TrafficTable traffic={traffic} onDelete={handleDeleteTraffic} />
-          {traffic.length === 0 && !showForm && (
-            <EmptyState
-              title="No traffic data"
-              description="Add GA4 traffic data by state. When actual revenue data is missing for a state, traffic percentages are used to estimate revenue attribution for economic nexus."
-            />
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 mb-4">{error}</div>
           )}
-          {showForm && (
-            <div className="mt-4 p-4 bg-slate-50 rounded-lg">
-              <TrafficForm onSubmit={handleCreateTraffic} onCancel={() => setShowForm(false)} />
+
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-1 border-b border-slate-200">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => { setActiveTab(tab.key); setShowForm(false); }}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                    activeTab === tab.key
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+            <div className="flex items-center gap-2">
+              {/* Property filter */}
+              <select
+                value={filterPropertyId}
+                onChange={(e) => setFilterPropertyId(e.target.value)}
+                className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">All Properties</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              {!showForm && (
+                <Button size="sm" onClick={() => setShowForm(true)}>
+                  + Add
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {activeTab === "revenue" && (
+            <>
+              <RevenueTable revenues={filteredRevenues} onDelete={handleDeleteRevenue} />
+              {filteredRevenues.length === 0 && !showForm && (
+                <EmptyState
+                  title="No revenue data"
+                  description="Add revenue per property and state to enable economic nexus analysis."
+                />
+              )}
+              {showForm && (
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  <RevenueForm
+                    properties={properties}
+                    onSubmit={handleCreateRevenue}
+                    onCancel={() => setShowForm(false)}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {activeTab === "traffic" && (
+            <>
+              <TrafficTable traffic={filteredTraffic} onDelete={handleDeleteTraffic} />
+              {filteredTraffic.length === 0 && !showForm && (
+                <EmptyState
+                  title="No traffic data"
+                  description="Add GA4 traffic data by property and state. Traffic percentages estimate revenue for economic nexus."
+                />
+              )}
+              {showForm && (
+                <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  <TrafficForm
+                    properties={properties}
+                    onSubmit={handleCreateTraffic}
+                    onCancel={() => setShowForm(false)}
+                  />
+                </div>
+              )}
+            </>
           )}
         </>
       )}

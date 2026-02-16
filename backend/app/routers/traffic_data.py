@@ -1,10 +1,11 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.entity import Entity
+from app.models.property import Property
 from app.models.traffic_data import TrafficData
 from app.schemas.traffic_data import TrafficDataCreate, TrafficDataResponse, TrafficDataUpdate
 
@@ -18,31 +19,53 @@ def _get_entity_or_404(entity_id: str, db: Session) -> Entity:
     return entity
 
 
+def _traffic_to_response(t: TrafficData) -> TrafficDataResponse:
+    return TrafficDataResponse(
+        id=t.id,
+        entity_id=t.entity_id,
+        property_id=t.property_id,
+        property_name=t.prop.name if t.prop else None,
+        state_code=t.state_code,
+        year=t.year,
+        monthly_pageviews=t.monthly_pageviews,
+        percentage_of_total=t.percentage_of_total,
+        newsletter_subscribers=t.newsletter_subscribers,
+        created_at=t.created_at,
+        updated_at=t.updated_at,
+    )
+
+
 @router.get("/{entity_id}/traffic", response_model=list[TrafficDataResponse])
-def list_traffic_data(entity_id: str, year: int | None = None, db: Session = Depends(get_db)):
+def list_traffic_data(entity_id: str, year: int | None = None, property_id: str | None = None, db: Session = Depends(get_db)):
     _get_entity_or_404(entity_id, db)
-    query = db.query(TrafficData).filter(TrafficData.entity_id == entity_id)
+    query = db.query(TrafficData).options(joinedload(TrafficData.prop)).filter(TrafficData.entity_id == entity_id)
     if year:
         query = query.filter(TrafficData.year == year)
-    return query.order_by(TrafficData.year.desc(), TrafficData.state_code).all()
+    if property_id:
+        query = query.filter(TrafficData.property_id == property_id)
+    return [_traffic_to_response(t) for t in query.order_by(TrafficData.year.desc(), TrafficData.state_code).all()]
 
 
 @router.post("/{entity_id}/traffic", response_model=TrafficDataResponse, status_code=201)
 def create_traffic_data(entity_id: str, payload: TrafficDataCreate, db: Session = Depends(get_db)):
     _get_entity_or_404(entity_id, db)
+    # Validate property belongs to entity
+    prop = db.query(Property).filter(Property.id == payload.property_id, Property.entity_id == entity_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found for this entity")
     existing = (
         db.query(TrafficData)
-        .filter(TrafficData.entity_id == entity_id, TrafficData.state_code == payload.state_code, TrafficData.year == payload.year)
+        .filter(TrafficData.property_id == payload.property_id, TrafficData.state_code == payload.state_code, TrafficData.year == payload.year)
         .first()
     )
     if existing:
-        raise HTTPException(status_code=409, detail=f"Traffic data already exists for {payload.state_code} in {payload.year}")
+        raise HTTPException(status_code=409, detail=f"Traffic data already exists for {prop.name} in {payload.state_code} for {payload.year}")
     now = datetime.utcnow().isoformat()
     td = TrafficData(**payload.model_dump(), entity_id=entity_id, created_at=now, updated_at=now)
     db.add(td)
     db.commit()
     db.refresh(td)
-    return td
+    return _traffic_to_response(td)
 
 
 @router.put("/{entity_id}/traffic/{traffic_id}", response_model=TrafficDataResponse)
@@ -55,7 +78,7 @@ def update_traffic_data(entity_id: str, traffic_id: str, payload: TrafficDataUpd
     td.updated_at = datetime.utcnow().isoformat()
     db.commit()
     db.refresh(td)
-    return td
+    return _traffic_to_response(td)
 
 
 @router.delete("/{entity_id}/traffic/{traffic_id}", status_code=204)

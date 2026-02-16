@@ -37,3 +37,4 @@ class Entity(Base):
     officers = relationship("Officer", back_populates="entity", cascade="all, delete-orphan")
     locations = relationship("Location", back_populates="entity", cascade="all, delete-orphan")
     registered_agents = relationship("RegisteredAgent", back_populates="entity", cascade="all, delete-orphan")
+    properties = relationship("Property", back_populates="entity", cascade="all, delete-orphan")

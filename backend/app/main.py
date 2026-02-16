@@ -17,6 +17,7 @@ from app.routers import (
     locations,
     nexus_rules,
     officers,
+    properties,
     registered_agents,
     revenues,
     traffic_data,
@@ -52,6 +53,7 @@ app.include_router(contractors.router, prefix="/api/entities", tags=["Contractor
 app.include_router(officers.router, prefix="/api/entities", tags=["Officers"])
 app.include_router(locations.router, prefix="/api/entities", tags=["Locations"])
 app.include_router(registered_agents.router, prefix="/api/entities", tags=["Registered Agents"])
+app.include_router(properties.router, prefix="/api/entities", tags=["Properties"])
 app.include_router(revenues.router, prefix="/api/entities", tags=["Revenues"])
 app.include_router(traffic_data.router, prefix="/api/entities", tags=["Traffic Data"])
 app.include_router(nexus_rules.router, prefix="/api/nexus-rules", tags=["Nexus Rules"])

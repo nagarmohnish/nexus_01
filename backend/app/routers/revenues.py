@@ -1,10 +1,11 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.entity import Entity
+from app.models.property import Property
 from app.models.revenue import Revenue
 from app.schemas.revenue import RevenueCreate, RevenueResponse, RevenueUpdate
 
@@ -22,6 +23,8 @@ def _revenue_to_response(r: Revenue) -> RevenueResponse:
     return RevenueResponse(
         id=r.id,
         entity_id=r.entity_id,
+        property_id=r.property_id,
+        property_name=r.prop.name if r.prop else None,
         state_code=r.state_code,
         year=r.year,
         advertising_mediavine=r.advertising_mediavine,
@@ -43,11 +46,13 @@ def _revenue_to_response(r: Revenue) -> RevenueResponse:
 
 
 @router.get("/{entity_id}/revenues", response_model=list[RevenueResponse])
-def list_revenues(entity_id: str, year: int | None = None, db: Session = Depends(get_db)):
+def list_revenues(entity_id: str, year: int | None = None, property_id: str | None = None, db: Session = Depends(get_db)):
     _get_entity_or_404(entity_id, db)
-    query = db.query(Revenue).filter(Revenue.entity_id == entity_id)
+    query = db.query(Revenue).options(joinedload(Revenue.prop)).filter(Revenue.entity_id == entity_id)
     if year:
         query = query.filter(Revenue.year == year)
+    if property_id:
+        query = query.filter(Revenue.property_id == property_id)
     revenues = query.order_by(Revenue.year.desc(), Revenue.state_code).all()
     return [_revenue_to_response(r) for r in revenues]
 
@@ -55,14 +60,18 @@ def list_revenues(entity_id: str, year: int | None = None, db: Session = Depends
 @router.post("/{entity_id}/revenues", response_model=RevenueResponse, status_code=201)
 def create_revenue(entity_id: str, payload: RevenueCreate, db: Session = Depends(get_db)):
     _get_entity_or_404(entity_id, db)
+    # Validate property belongs to entity
+    prop = db.query(Property).filter(Property.id == payload.property_id, Property.entity_id == entity_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found for this entity")
     # Check for duplicate
     existing = (
         db.query(Revenue)
-        .filter(Revenue.entity_id == entity_id, Revenue.state_code == payload.state_code, Revenue.year == payload.year)
+        .filter(Revenue.property_id == payload.property_id, Revenue.state_code == payload.state_code, Revenue.year == payload.year)
         .first()
     )
     if existing:
-        raise HTTPException(status_code=409, detail=f"Revenue entry already exists for {payload.state_code} in {payload.year}")
+        raise HTTPException(status_code=409, detail=f"Revenue entry already exists for {prop.name} in {payload.state_code} for {payload.year}")
     now = datetime.utcnow().isoformat()
     revenue = Revenue(**payload.model_dump(), entity_id=entity_id, created_at=now, updated_at=now)
     db.add(revenue)
@@ -94,12 +103,14 @@ def delete_revenue(entity_id: str, revenue_id: str, db: Session = Depends(get_db
 
 
 @router.get("/{entity_id}/revenues/summary", response_model=dict)
-def revenue_summary(entity_id: str, year: int | None = None, db: Session = Depends(get_db)):
-    """Get total revenue by state for an entity."""
+def revenue_summary(entity_id: str, year: int | None = None, property_id: str | None = None, db: Session = Depends(get_db)):
+    """Get total revenue by state for an entity, aggregated across all properties."""
     _get_entity_or_404(entity_id, db)
     query = db.query(Revenue).filter(Revenue.entity_id == entity_id)
     if year:
         query = query.filter(Revenue.year == year)
+    if property_id:
+        query = query.filter(Revenue.property_id == property_id)
     revenues = query.all()
 
     by_state = {}

@@ -4,8 +4,9 @@ import StateSelect from "../common/StateSelect";
 
 const currentYear = new Date().getFullYear();
 
-export default function TrafficForm({ onSubmit, onCancel }) {
+export default function TrafficForm({ properties, onSubmit, onCancel }) {
   const [form, setForm] = useState({
+    property_id: "",
     state_code: "",
     year: currentYear,
     monthly_pageviews: "",
@@ -18,6 +19,7 @@ export default function TrafficForm({ onSubmit, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     await onSubmit({
+      property_id: form.property_id,
       state_code: form.state_code,
       year: parseInt(form.year),
       monthly_pageviews: parseInt(form.monthly_pageviews) || 0,
@@ -25,6 +27,7 @@ export default function TrafficForm({ onSubmit, onCancel }) {
       newsletter_subscribers: parseInt(form.newsletter_subscribers) || 0,
     });
     setForm({
+      property_id: "",
       state_code: "",
       year: currentYear,
       monthly_pageviews: "",
@@ -35,7 +38,18 @@ export default function TrafficForm({ onSubmit, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
+        <select
+          required
+          value={form.property_id}
+          onChange={set("property_id")}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">Select Property...</option>
+          {properties.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
         <StateSelect required value={form.state_code} onChange={set("state_code")} />
         <input
           required

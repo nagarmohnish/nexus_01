@@ -6,6 +6,7 @@ from app.models.location import Location, LocationType
 from app.models.registered_agent import RegisteredAgent
 from app.models.state_nexus_rule import StateNexusRule
 from app.models.nexus_result import NexusResult, NexusStatus
+from app.models.property import Property
 from app.models.revenue import Revenue
 from app.models.traffic_data import TrafficData
 
@@ -18,6 +19,7 @@ __all__ = [
     "RegisteredAgent",
     "StateNexusRule",
     "NexusResult", "NexusStatus",
+    "Property",
     "Revenue",
     "TrafficData",
 ]

@@ -11,6 +11,7 @@ export default function RevenueTable({ revenues, onDelete }) {
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50">
           <tr>
+            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Property</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">State</th>
             <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Year</th>
             <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Total Revenue</th>
@@ -32,6 +33,7 @@ export default function RevenueTable({ revenues, onDelete }) {
 
             return (
               <tr key={rev.id} className="hover:bg-slate-50">
+                <td className="px-4 py-2 font-medium text-blue-700">{rev.property_name || "—"}</td>
                 <td className="px-4 py-2 font-medium text-slate-900">{getStateName(rev.state_code)}</td>
                 <td className="px-4 py-2 text-slate-600">{rev.year}</td>
                 <td className="px-4 py-2 text-right font-medium text-slate-900">{fmt(rev.total_revenue)}</td>

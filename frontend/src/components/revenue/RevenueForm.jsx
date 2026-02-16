@@ -6,12 +6,13 @@ import { REVENUE_SOURCES } from "../../utils/constants";
 const currentYear = new Date().getFullYear();
 
 const emptyForm = () => ({
+  property_id: "",
   state_code: "",
   year: currentYear,
   ...Object.fromEntries(REVENUE_SOURCES.map((s) => [s.key, ""])),
 });
 
-export default function RevenueForm({ onSubmit, onCancel }) {
+export default function RevenueForm({ properties, onSubmit, onCancel }) {
   const [form, setForm] = useState(emptyForm());
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
@@ -19,6 +20,7 @@ export default function RevenueForm({ onSubmit, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const data = {
+      property_id: form.property_id,
       state_code: form.state_code,
       year: parseInt(form.year),
       ...Object.fromEntries(
@@ -31,7 +33,18 @@ export default function RevenueForm({ onSubmit, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
+        <select
+          required
+          value={form.property_id}
+          onChange={set("property_id")}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">Select Property...</option>
+          {properties.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
         <StateSelect required value={form.state_code} onChange={set("state_code")} />
         <input
           required
