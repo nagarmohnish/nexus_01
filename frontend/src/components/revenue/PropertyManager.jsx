@@ -1,17 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Button from "../common/Button";
 
-export default function PropertyManager({ properties, onCreate, onDelete }) {
+export default function PropertyManager({ properties, onCreate, onUpdate, onDelete }) {
   const [showForm, setShowForm] = useState(false);
+  const [editingProp, setEditingProp] = useState(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    await onCreate({ name: name.trim(), url: url.trim() || null });
+  useEffect(() => {
+    if (editingProp) {
+      setName(editingProp.name);
+      setUrl(editingProp.url || "");
+      setShowForm(true);
+    }
+  }, [editingProp]);
+
+  const resetForm = () => {
     setName("");
     setUrl("");
     setShowForm(false);
+    setEditingProp(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const data = { name: name.trim(), url: url.trim() || null };
+    if (editingProp) {
+      await onUpdate(editingProp.id, data);
+    } else {
+      await onCreate(data);
+    }
+    resetForm();
+  };
+
+  const startAdd = () => {
+    setEditingProp(null);
+    setName("");
+    setUrl("");
+    setShowForm(true);
+  };
+
+  const startEdit = (p) => {
+    setEditingProp(p);
   };
 
   return (
@@ -21,7 +51,7 @@ export default function PropertyManager({ properties, onCreate, onDelete }) {
           Properties / Sub-brands ({properties.length})
         </h4>
         {!showForm && (
-          <Button size="sm" onClick={() => setShowForm(true)}>
+          <Button size="sm" onClick={startAdd}>
             + Add Property
           </Button>
         )}
@@ -50,8 +80,8 @@ export default function PropertyManager({ properties, onCreate, onDelete }) {
               className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
           </div>
-          <Button type="submit" size="sm">Add</Button>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setShowForm(false)}>Cancel</Button>
+          <Button type="submit" size="sm">{editingProp ? "Save" : "Add"}</Button>
+          <Button type="button" variant="ghost" size="sm" onClick={resetForm}>Cancel</Button>
         </form>
       )}
 
@@ -73,8 +103,17 @@ export default function PropertyManager({ properties, onCreate, onDelete }) {
                 <span className="text-slate-400 text-xs truncate max-w-[150px]">{p.url}</span>
               )}
               <button
+                onClick={() => startEdit(p)}
+                className="text-blue-400 hover:text-blue-600 ml-1"
+                title="Edit property"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                  <path d="M13.49 3.51a3.13 3.13 0 0 0-4.43 0L2.7 9.87a1 1 0 0 0-.26.45l-.78 3.12a.5.5 0 0 0 .6.6l3.12-.78a1 1 0 0 0 .45-.26l6.36-6.36a3.13 3.13 0 0 0 0-4.43l-.7-.7ZM10.12 4.17l1.71 1.71-5.3 5.3-2.12.53.53-2.12 5.18-5.42Z" />
+                </svg>
+              </button>
+              <button
                 onClick={() => onDelete(p.id)}
-                className="text-red-400 hover:text-red-600 text-xs ml-1"
+                className="text-red-400 hover:text-red-600 text-xs"
                 title="Remove property"
               >
                 x

@@ -1,18 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Button from "../common/Button";
 import StateSelect from "../common/StateSelect";
 
 const currentYear = new Date().getFullYear();
 
-export default function TrafficForm({ properties, onSubmit, onCancel }) {
-  const [form, setForm] = useState({
-    property_id: "",
-    state_code: "",
-    year: currentYear,
-    monthly_pageviews: "",
-    percentage_of_total: "",
-    newsletter_subscribers: "",
-  });
+const emptyForm = () => ({
+  property_id: "",
+  state_code: "",
+  year: currentYear,
+  monthly_pageviews: "",
+  percentage_of_total: "",
+  newsletter_subscribers: "",
+});
+
+export default function TrafficForm({ properties, editing, onSubmit, onCancel }) {
+  const [form, setForm] = useState(emptyForm());
+
+  useEffect(() => {
+    if (editing) {
+      setForm({
+        property_id: editing.property_id || "",
+        state_code: editing.state_code || "",
+        year: editing.year || currentYear,
+        monthly_pageviews: editing.monthly_pageviews || "",
+        percentage_of_total: editing.percentage_of_total || "",
+        newsletter_subscribers: editing.newsletter_subscribers || "",
+      });
+    } else {
+      setForm(emptyForm());
+    }
+  }, [editing]);
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
@@ -26,14 +43,7 @@ export default function TrafficForm({ properties, onSubmit, onCancel }) {
       percentage_of_total: parseFloat(form.percentage_of_total) || 0,
       newsletter_subscribers: parseInt(form.newsletter_subscribers) || 0,
     });
-    setForm({
-      property_id: "",
-      state_code: "",
-      year: currentYear,
-      monthly_pageviews: "",
-      percentage_of_total: "",
-      newsletter_subscribers: "",
-    });
+    if (!editing) setForm(emptyForm());
   };
 
   return (
@@ -101,7 +111,9 @@ export default function TrafficForm({ properties, onSubmit, onCancel }) {
         </div>
       </div>
       <div className="flex gap-2">
-        <Button type="submit" size="sm">Add Traffic Data</Button>
+        <Button type="submit" size="sm">
+          {editing ? "Update Traffic Data" : "Add Traffic Data"}
+        </Button>
         {onCancel && <Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>}
       </div>
     </form>

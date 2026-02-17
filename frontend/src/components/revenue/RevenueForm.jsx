@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Button from "../common/Button";
 import StateSelect from "../common/StateSelect";
 import { REVENUE_SOURCES } from "../../utils/constants";
@@ -12,8 +12,23 @@ const emptyForm = () => ({
   ...Object.fromEntries(REVENUE_SOURCES.map((s) => [s.key, ""])),
 });
 
-export default function RevenueForm({ properties, onSubmit, onCancel }) {
+export default function RevenueForm({ properties, editing, onSubmit, onCancel }) {
   const [form, setForm] = useState(emptyForm());
+
+  useEffect(() => {
+    if (editing) {
+      setForm({
+        property_id: editing.property_id || "",
+        state_code: editing.state_code || "",
+        year: editing.year || currentYear,
+        ...Object.fromEntries(
+          REVENUE_SOURCES.map((s) => [s.key, editing[s.key] || ""])
+        ),
+      });
+    } else {
+      setForm(emptyForm());
+    }
+  }, [editing]);
 
   const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
 
@@ -28,7 +43,7 @@ export default function RevenueForm({ properties, onSubmit, onCancel }) {
       ),
     };
     await onSubmit(data);
-    setForm(emptyForm());
+    if (!editing) setForm(emptyForm());
   };
 
   return (
@@ -79,7 +94,9 @@ export default function RevenueForm({ properties, onSubmit, onCancel }) {
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit" size="sm">Add Revenue Entry</Button>
+        <Button type="submit" size="sm">
+          {editing ? "Update Revenue Entry" : "Add Revenue Entry"}
+        </Button>
         {onCancel && <Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>}
       </div>
     </form>

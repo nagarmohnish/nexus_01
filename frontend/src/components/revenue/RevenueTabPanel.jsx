@@ -19,6 +19,8 @@ const TABS = [
 export default function RevenueTabPanel({ entityId }) {
   const [activeTab, setActiveTab] = useState("revenue");
   const [showForm, setShowForm] = useState(false);
+  const [editingRevenue, setEditingRevenue] = useState(null);
+  const [editingTraffic, setEditingTraffic] = useState(null);
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState([]);
   const [revenues, setRevenues] = useState([]);
@@ -48,6 +50,7 @@ export default function RevenueTabPanel({ entityId }) {
     loadData();
   }, [loadData]);
 
+  // --- Property handlers ---
   const handleCreateProperty = async (data) => {
     try {
       await propertyApi.createProperty(entityId, data);
@@ -58,6 +61,16 @@ export default function RevenueTabPanel({ entityId }) {
     }
   };
 
+  const handleUpdateProperty = async (propId, data) => {
+    try {
+      await propertyApi.updateProperty(entityId, propId, data);
+      loadData();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      alert(detail || "Failed to update property");
+    }
+  };
+
   const handleDeleteProperty = async (propId) => {
     if (!confirm("Delete this property? All its revenue and traffic data will be removed.")) return;
     await propertyApi.deleteProperty(entityId, propId);
@@ -65,15 +78,27 @@ export default function RevenueTabPanel({ entityId }) {
     loadData();
   };
 
-  const handleCreateRevenue = async (data) => {
+  // --- Revenue handlers ---
+  const handleSubmitRevenue = async (data) => {
     try {
-      await revenueApi.createRevenue(entityId, data);
+      if (editingRevenue) {
+        await revenueApi.updateRevenue(entityId, editingRevenue.id, data);
+        setEditingRevenue(null);
+      } else {
+        await revenueApi.createRevenue(entityId, data);
+      }
       setShowForm(false);
       loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      alert(detail || "Failed to create revenue entry");
+      alert(detail || "Failed to save revenue entry");
     }
+  };
+
+  const handleEditRevenue = (rev) => {
+    setEditingRevenue(rev);
+    setEditingTraffic(null);
+    setShowForm(true);
   };
 
   const handleDeleteRevenue = async (revId) => {
@@ -81,20 +106,44 @@ export default function RevenueTabPanel({ entityId }) {
     loadData();
   };
 
-  const handleCreateTraffic = async (data) => {
+  // --- Traffic handlers ---
+  const handleSubmitTraffic = async (data) => {
     try {
-      await trafficApi.createTrafficData(entityId, data);
+      if (editingTraffic) {
+        await trafficApi.updateTrafficData(entityId, editingTraffic.id, data);
+        setEditingTraffic(null);
+      } else {
+        await trafficApi.createTrafficData(entityId, data);
+      }
       setShowForm(false);
       loadData();
     } catch (err) {
       const detail = err.response?.data?.detail;
-      alert(detail || "Failed to create traffic entry");
+      alert(detail || "Failed to save traffic entry");
     }
+  };
+
+  const handleEditTraffic = (traf) => {
+    setEditingTraffic(traf);
+    setEditingRevenue(null);
+    setShowForm(true);
   };
 
   const handleDeleteTraffic = async (trafId) => {
     await trafficApi.deleteTrafficData(entityId, trafId);
     loadData();
+  };
+
+  const handleCancelForm = () => {
+    setShowForm(false);
+    setEditingRevenue(null);
+    setEditingTraffic(null);
+  };
+
+  const handleAddNew = () => {
+    setEditingRevenue(null);
+    setEditingTraffic(null);
+    setShowForm(true);
   };
 
   if (loading) return <LoadingSpinner />;
@@ -114,6 +163,7 @@ export default function RevenueTabPanel({ entityId }) {
       <PropertyManager
         properties={properties}
         onCreate={handleCreateProperty}
+        onUpdate={handleUpdateProperty}
         onDelete={handleDeleteProperty}
       />
 
@@ -152,7 +202,7 @@ export default function RevenueTabPanel({ entityId }) {
               {TABS.map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => { setActiveTab(tab.key); setShowForm(false); }}
+                  onClick={() => { setActiveTab(tab.key); handleCancelForm(); }}
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
                     activeTab === tab.key
                       ? "border-blue-500 text-blue-600"
@@ -176,7 +226,7 @@ export default function RevenueTabPanel({ entityId }) {
                 ))}
               </select>
               {!showForm && (
-                <Button size="sm" onClick={() => setShowForm(true)}>
+                <Button size="sm" onClick={handleAddNew}>
                   + Add
                 </Button>
               )}
@@ -185,7 +235,7 @@ export default function RevenueTabPanel({ entityId }) {
 
           {activeTab === "revenue" && (
             <>
-              <RevenueTable revenues={filteredRevenues} onDelete={handleDeleteRevenue} />
+              <RevenueTable revenues={filteredRevenues} onEdit={handleEditRevenue} onDelete={handleDeleteRevenue} />
               {filteredRevenues.length === 0 && !showForm && (
                 <EmptyState
                   title="No revenue data"
@@ -194,10 +244,14 @@ export default function RevenueTabPanel({ entityId }) {
               )}
               {showForm && (
                 <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  {editingRevenue && (
+                    <div className="text-xs font-medium text-blue-600 mb-2">Editing: {editingRevenue.property_name} &mdash; {editingRevenue.state_code} &mdash; {editingRevenue.year}</div>
+                  )}
                   <RevenueForm
                     properties={properties}
-                    onSubmit={handleCreateRevenue}
-                    onCancel={() => setShowForm(false)}
+                    editing={editingRevenue}
+                    onSubmit={handleSubmitRevenue}
+                    onCancel={handleCancelForm}
                   />
                 </div>
               )}
@@ -206,7 +260,7 @@ export default function RevenueTabPanel({ entityId }) {
 
           {activeTab === "traffic" && (
             <>
-              <TrafficTable traffic={filteredTraffic} onDelete={handleDeleteTraffic} />
+              <TrafficTable traffic={filteredTraffic} onEdit={handleEditTraffic} onDelete={handleDeleteTraffic} />
               {filteredTraffic.length === 0 && !showForm && (
                 <EmptyState
                   title="No traffic data"
@@ -215,10 +269,14 @@ export default function RevenueTabPanel({ entityId }) {
               )}
               {showForm && (
                 <div className="mt-4 p-4 bg-slate-50 rounded-lg">
+                  {editingTraffic && (
+                    <div className="text-xs font-medium text-blue-600 mb-2">Editing: {editingTraffic.property_name} &mdash; {editingTraffic.state_code} &mdash; {editingTraffic.year}</div>
+                  )}
                   <TrafficForm
                     properties={properties}
-                    onSubmit={handleCreateTraffic}
-                    onCancel={() => setShowForm(false)}
+                    editing={editingTraffic}
+                    onSubmit={handleSubmitTraffic}
+                    onCancel={handleCancelForm}
                   />
                 </div>
               )}

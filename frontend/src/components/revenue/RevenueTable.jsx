@@ -1,9 +1,9 @@
 import { getStateName } from "../../utils/formatters";
 
 const fmt = (val) =>
-  val ? `$${Number(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—";
+  val ? `$${Number(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "\u2014";
 
-export default function RevenueTable({ revenues, onDelete }) {
+export default function RevenueTable({ revenues, onEdit, onDelete }) {
   if (revenues.length === 0) return null;
 
   return (
@@ -32,8 +32,12 @@ export default function RevenueTable({ revenues, onDelete }) {
               (rev.direct_sales || 0) + (rev.other_revenue || 0);
 
             return (
-              <tr key={rev.id} className="hover:bg-slate-50">
-                <td className="px-4 py-2 font-medium text-blue-700">{rev.property_name || "—"}</td>
+              <tr
+                key={rev.id}
+                className="hover:bg-slate-50 cursor-pointer"
+                onClick={() => onEdit(rev)}
+              >
+                <td className="px-4 py-2 font-medium text-blue-700">{rev.property_name || "\u2014"}</td>
                 <td className="px-4 py-2 font-medium text-slate-900">{getStateName(rev.state_code)}</td>
                 <td className="px-4 py-2 text-slate-600">{rev.year}</td>
                 <td className="px-4 py-2 text-right font-medium text-slate-900">{fmt(rev.total_revenue)}</td>
@@ -41,13 +45,21 @@ export default function RevenueTable({ revenues, onDelete }) {
                 <td className="px-4 py-2 text-right text-slate-600">{fmt(syndTotal)}</td>
                 <td className="px-4 py-2 text-right text-slate-600">{fmt(rev.affiliate_revenue)}</td>
                 <td className="px-4 py-2 text-right text-slate-600">{fmt(otherTotal)}</td>
-                <td className="px-4 py-2 text-right">
-                  <button
-                    onClick={() => onDelete(rev.id)}
-                    className="text-red-500 hover:text-red-700 text-xs font-medium"
-                  >
-                    Remove
-                  </button>
+                <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => onEdit(rev)}
+                      className="text-blue-500 hover:text-blue-700 text-xs font-medium"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => onDelete(rev.id)}
+                      className="text-red-500 hover:text-red-700 text-xs font-medium"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </td>
               </tr>
             );
